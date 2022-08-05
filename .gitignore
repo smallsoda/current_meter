@@ -1,0 +1,12 @@
+# Altium Designer PCB project
+board/History/
+board/Project\ Logs\ for\ */
+board/Project\ Outputs\ for\ */
+board/__Previews
+board/*.PrjPcbStructure
+board/*.PcbDoc.htm
+
+# STM32CubeIDE project
+source/.settings/
+source/Debug/
+source/*Debug.launch
