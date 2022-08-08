@@ -22,12 +22,12 @@ Short press changes data transmission period (***LED2***, *number of bulbs - num
 Meter mode settings are stored in EEPROM and saved after disconnection from USB
 
 #### Device diagram
-![Device diagram](https://github.com/smallsoda/temp/blob/master/pictures/meter.png?raw=true)
+![Device diagram](https://github.com/smallsoda/current_meter/blob/master/pictures/meter.png?raw=true)
 
 #### Connection diagram
 The meter must be connected between the ground of the device whose current consumption is being measured and the ground of the power supply
-![Connection diagram](https://github.com/smallsoda/temp/blob/master/pictures/connection.png?raw=true)
+![Connection diagram](https://github.com/smallsoda/current_meter/blob/master/pictures/connection.png?raw=true)
 
 #### Current chart
 Any software can be used to render current chart. For example, Serial Plotter Tool in Arduino IDE
-![Current chart](https://github.com/smallsoda/temp/blob/master/pictures/chart.png?raw=true)
+![Current chart](https://github.com/smallsoda/current_meter/blob/master/pictures/chart.png?raw=true)
