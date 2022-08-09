@@ -3,9 +3,9 @@ USB current meter is designed to measure the current of low-power devices
 
 ### Measurements
 The meter has three operational ampifiers (OA) to extend current measurement range. Currents from 2 uA to 2 A can be measured. All OAs connected to the only one shunt resistor (1 Ohm).
-- 0 amplifier gain (OA0, microchip DA3): 1
-- 1 amplifier gain (OA1, microchip DA2): 40
-- 2 amplifier gain (OA2, microchip DA1): 391
+- Amplifier 0 gain (OA0, microchip DA3): 1
+- Amplifier 1 gain (OA1, microchip DA2): 40
+- Amplifier 2 gain (OA2, microchip DA1): 391
 
 ### Modes
 The meter transfers current data via USB (virtual COM-port). Meter modes can be changed by push button.
