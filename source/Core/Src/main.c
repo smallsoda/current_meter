@@ -25,6 +25,7 @@
 
 #include "usbd_cdc_if.h"
 
+#include "slip.h"
 #include "storage.h"
 #include "status_led.h"
 
@@ -36,6 +37,9 @@
 
 #define DATA_BUFFER_SIZE 256
 #define DATA_STRING_SIZE 1024
+
+#define DATA_TX_MAX_RECORDS 50
+#define DATA_TX_MAX_RETRIES 10
 
 #define BUTTON_DELAY     200 // ms
 #define BUTTON_DELAY_LP 1000 // ms
@@ -68,16 +72,13 @@ TIM_HandleTypeDef htim4;
 
 // Storage
 storage_t storage = {0};
-
-// Button
-uint16_t btn_counter = 0;
-uint16_t btn_counter_press = 0;
-uint8_t btn_state = 1;
+uint8_t save_settings_flag = 0;
 
 // ADC
 uint16_t adc_data[3];
 
 // Data buffer
+uint16_t data_buffer_raw[DATA_BUFFER_SIZE][3];
 uint32_t data_buffer[DATA_BUFFER_SIZE];
 uint16_t data_buffer_set = 0;
 uint16_t data_buffer_get = 0;
@@ -103,15 +104,23 @@ static void MX_TIM4_Init(void);
 //
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+	// Button
+	static uint16_t btn_counter = 0;
+	static uint16_t btn_counter_press = 0;
+	static uint8_t btn_state = 1;
+
+	// General counter
 	static uint16_t counter = 0;
 	counter = (counter + 1) % 1000;
 
 	// Period: 1ms
-	//
 	// ADC
+	//
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_data, 3);
 
+	// Period: 1ms
 	// Button
+	//
 	if(btn_counter_press)
 		btn_counter_press--;
 	//
@@ -136,22 +145,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			if(btn_counter_press)
 			{
 				storage.settings.period = (storage.settings.period + 1) % 3; // 0 - 1ms, 1 - 10ms, 2 - 100ms
-				storage_set_params_settings(&storage.settings);
 				status_led(0, storage.settings.period + 1); // 1, 2 or 3 blinks
+				save_settings_flag = 1;
 			}
 			// Long press
 			else
 			{
-				storage.settings.mode = (storage.settings.mode + 1) % 2; // 0 - RAW, 1 - TEXT
-				storage_set_params_settings(&storage.settings);
-				status_led(1, storage.settings.mode + 1); // 1 or 2 blinks
+				storage.settings.mode = (storage.settings.mode + 1) % 3; // 0 - TEXT, 1 - RAW JSON, 2 - RAW SLIP
+				status_led(1, storage.settings.mode + 1); // 1, 2 or 3 blinks
+				save_settings_flag = 1;
 			}
 		}
 	}
 
 	// Period: 125ms
-	//
 	// LEDs
+	//
 	if((counter % 125) == 0)
 		status_led_callback();
 }
@@ -160,8 +169,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	static uint8_t counter = 0;
+	static uint16_t counter = 0;
 	uint32_t value = 0;
+
+	// Raw data
+	data_buffer_raw[data_buffer_set][0] = adc_data[1];
+	data_buffer_raw[data_buffer_set][1] = adc_data[2];
+	data_buffer_raw[data_buffer_set][2] = adc_data[0];
 
 	// OA2
 	if(adc_data[0] < OA_MAX_ADC_VALUE)
@@ -173,7 +187,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	else
 		value = adc_data[1] * K_ADC_TO_UA / OA0_GAIN;
 
-	// Clear data buffer
+	// Clear buffer
 	if(counter == 0)
 		data_buffer[data_buffer_set] = 0;
 
@@ -274,16 +288,76 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-		//
+	    // Saving settings to storage
+	    if(save_settings_flag)
+	    {
+	    	save_settings_flag = 0;
+	    	storage_set_params_settings(&storage.settings);
+	    }
+
+		// Data transfer
 	    if(data_buffer_get != data_buffer_set)
 	    {
-	    	uint16_t string_cnt = 0;
-	    	while(data_buffer_get != data_buffer_set)
-	    	{
-	    		string_cnt += sprintf(&data_string[string_cnt], "%lu\r\n", data_buffer[data_buffer_get]);
-	    		data_buffer_get = (data_buffer_get + 1) % DATA_BUFFER_SIZE;
-	    	}
-			while(CDC_Transmit_FS((uint8_t*) data_string, string_cnt) == USBD_BUSY);
+	    	// Create message
+			uint16_t string_cnt = 0;
+			uint16_t records = DATA_TX_MAX_RECORDS;
+
+			// Mode: TEXT
+			if(storage.settings.mode == 0)
+			{
+				while((data_buffer_get != data_buffer_set) && (records))
+				{
+					string_cnt += sprintf(&data_string[string_cnt], "%lu\r\n", data_buffer[data_buffer_get]);
+					data_buffer_get = (data_buffer_get + 1) % DATA_BUFFER_SIZE;
+					records--;
+				}
+			}
+
+			// Mode: RAW JSON
+			else if(storage.settings.mode == 1)
+			{
+				while((data_buffer_get != data_buffer_set) && (records))
+				{
+					string_cnt += sprintf(
+							&data_string[string_cnt],
+							"{\"OA0\": %d, \"OA1\": %d, \"OA2\": %d}\r\n",
+							data_buffer_raw[data_buffer_get][0],
+							data_buffer_raw[data_buffer_get][1],
+							data_buffer_raw[data_buffer_get][2]);
+					data_buffer_get = (data_buffer_get + 1) % DATA_BUFFER_SIZE;
+					records--;
+				}
+			}
+
+			// Mode: RAW SLIP
+			else if(storage.settings.mode == 2)
+			{
+				while((data_buffer_get != data_buffer_set) && (records))
+				{
+					uint8_t buffer[6];
+					for(uint8_t i = 0; i < 3; i++)
+					{
+						buffer[i * 2] = data_buffer_raw[data_buffer_get][i] >> 8;
+						buffer[i * 2 + 1] = data_buffer_raw[data_buffer_get][i];
+					}
+
+					uint8_t *slip = NULL;
+					string_cnt = slip_packet(&slip, buffer, 6);
+					memcpy(data_string, slip, string_cnt);
+					free(slip);
+
+					data_buffer_get = (data_buffer_get + 1) % DATA_BUFFER_SIZE;
+					records--;
+		    	}
+			}
+
+			// Transfer message
+			uint16_t retries = DATA_TX_MAX_RETRIES;
+			while((CDC_Transmit_FS((uint8_t*) data_string, string_cnt) == USBD_BUSY) && (retries))
+			{
+				HAL_Delay(1);
+				retries--;
+			}
 		}
   }
   /* USER CODE END 3 */

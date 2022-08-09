@@ -78,8 +78,8 @@ void storage_set_default(void)
 	storage_t params = {0};
 
 	params.settings.empty_status = 0x5A;
-	params.settings.mode = 1;
-	params.settings.period = 1;
+	params.settings.mode = 0;
+	params.settings.period = 2;
 	params.calib.oa0 = 0;
 	params.calib.oa1 = 0;
 	params.calib.oa2 = 0;

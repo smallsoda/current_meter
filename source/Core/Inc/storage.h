@@ -10,7 +10,7 @@
 typedef struct
 {
 	uint8_t empty_status; // 0x5A - not empty, OTHER - empty
-	uint8_t mode;         // 0 - RAW, 1 - TEXT
+	uint8_t mode;         // 0 - TEXT, 1 - RAW JSON, 2 - RAW SLIP
 	uint8_t period;       // 0 - 1ms, 1 - 10ms, 2 - 100ms
 	uint32_t : 8;         // Reserved
 	uint32_t : 32;        // Reserved
