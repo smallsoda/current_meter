@@ -179,13 +179,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 	// OA2
 	if(adc_data[0] < OA_MAX_ADC_VALUE)
-		value = adc_data[0] * K_ADC_TO_UA / OA2_GAIN;
+		value = adc_data[0] * K_ADC_TO_UA / OA2_GAIN * storage.calib.oa2 / 1000;
 	// OA1
 	else if(adc_data[2] < OA_MAX_ADC_VALUE)
-		value = adc_data[2] * K_ADC_TO_UA / OA1_GAIN;
+		value = adc_data[2] * K_ADC_TO_UA / OA1_GAIN * storage.calib.oa1 / 1000;
 	// OA0
 	else
-		value = adc_data[1] * K_ADC_TO_UA / OA0_GAIN;
+		value = adc_data[1] * K_ADC_TO_UA / OA0_GAIN * storage.calib.oa0 / 1000;
 
 	// Clear buffer
 	if(counter == 0)
